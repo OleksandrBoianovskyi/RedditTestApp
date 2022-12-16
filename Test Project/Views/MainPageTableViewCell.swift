@@ -9,7 +9,8 @@ import UIKit
 import SnapKit
 
 class MainPageTableViewCell: UITableViewCell {
-
+    
+    // MARK: - Properties
     
     static let cellIdentifier = "MainPageTableViewCell"
     var userName = UILabel()
@@ -18,12 +19,15 @@ class MainPageTableViewCell: UITableViewCell {
     var commentsButton = UIButton()
     var voteButton = UIButton()
     var settingButton = UIButton()
+    var media: UIImageView?
+    var icon: UIImageView?
     
+    // MARK: - Cell methods
     
     override func awakeFromNib() {
         super.awakeFromNib()
     }
-
+    
     override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
         cellPrepare()
@@ -32,20 +36,17 @@ class MainPageTableViewCell: UITableViewCell {
         
     }
     
-    private func getData(from url: URL, completion: @escaping (Data?, URLResponse?, Error?) -> ()) {
-        URLSession.shared.dataTask(with: url, completionHandler: completion).resume()
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        media?.isHidden = true
     }
-
-//    private func downloadImage(from url: URL) {
-//        getData(from: url) { data, response, error in
-//            guard let data = data, error == nil else { return }
-//            print(response?.suggestedFilename ?? url.lastPathComponent)
-//            // always update the UI from the main thread
-//            DispatchQueue.main.async() { [weak self] in
-//                self?.media.image = UIImage(data: data)
-//            }
-//        }
-//    }
+    
+    static func nib() -> UINib {
+        UINib(nibName: "MainPageTableViewCell", bundle: nil)
+    }
+    
+    
+    // MARK: - Setup UI methods
     
     func cellPrepare() {
         self.addSubview(userName)
@@ -65,24 +66,32 @@ class MainPageTableViewCell: UITableViewCell {
         commentsButton.titleLabel?.textAlignment = .center
         
         userName.snp.makeConstraints { make in
-            make.top.leading.equalTo(10)
+            make.top.equalTo(10)
+            if let icon = icon {
+                make.left.equalTo(icon.snp.right).offset(5)
+            }
         }
         
         hoursAgoCreated.snp.makeConstraints { make in
             make.top.equalTo(10)
             make.left.equalTo(self.userName.snp.right).offset(5)
+            if let media = self.media {
+                make.right.lessThanOrEqualTo(media.snp.left).offset(-5)
+            }
         }
         
         pageText.snp.makeConstraints { make in
             make.top.equalTo(self.userName.snp.bottom).offset(8)
-            make.leading.equalTo(10)
-            make.width.lessThanOrEqualToSuperview()
+            make.leading.equalTo(15)
+            if !(media?.isHidden ?? true), let media = self.media {
+                make.right.lessThanOrEqualTo(media.snp.left).offset(-10)
+            }
         }
         
         voteButton.snp.makeConstraints { make in
             make.top.equalTo(self.pageText.snp.bottom).offset(8)
             make.bottom.equalTo(-10)
-            make.leading.equalTo(10)
+            make.leading.equalTo(15)
             
             if let title = voteButton.titleLabel {
                 make.width.equalTo(title.snp.width).offset(16)
@@ -92,12 +101,45 @@ class MainPageTableViewCell: UITableViewCell {
         commentsButton.snp.makeConstraints { make in
             make.top.equalTo(self.pageText.snp.bottom).offset(8)
             make.left.equalTo(self.voteButton.snp.right).offset(8)
-            make.bottom.equalTo(-10)
             
             if let title = commentsButton.titleLabel {
                 make.width.equalTo(title.snp.width).offset(16)
             }
         }
+    }
+    
+    private func setupMedia() {
+        media = UIImageView()
+        if let media = media {
+            self.addSubview(media)
+            media.layer.masksToBounds = true
+            media.layer.cornerRadius = 5
+            media.snp.makeConstraints { make in
+                make.top.equalTo(10)
+                make.right.equalTo(-15)
+                make.bottom.lessThanOrEqualToSuperview().offset(-10)
+                make.height.equalTo(75)
+                make.width.equalTo(95)
+            }
+        }
+        
+        self.layoutIfNeeded()
+    }
+    
+    private func setupIcon() {
+        icon = UIImageView()
+        if let icon = icon {
+            self.addSubview(icon)
+            icon.layer.masksToBounds = true
+            icon.layer.cornerRadius = 5
+            icon.snp.makeConstraints { make in
+                make.top.equalTo(14)
+                make.leading.equalTo(15)
+                make.height.equalTo(15)
+                make.width.equalTo(15)
+            }
+        }
+        self.layoutIfNeeded()
     }
     
     private func setupUI() {
@@ -115,6 +157,8 @@ class MainPageTableViewCell: UITableViewCell {
         hoursAgoCreated.textColor = .gray
     }
     
+    // MARK: - Business logic
+    
     private func validateCount(count: Int) -> String {
         let num = Double(count)
         let newCountInDouble = Double(Int(num / 100)) / 10
@@ -125,8 +169,26 @@ class MainPageTableViewCell: UITableViewCell {
         }
     }
     
-    static func nib() -> UINib {
-        UINib(nibName: "MainPageTableViewCell", bundle: nil)
+    private func getData(from url: URL, completion: @escaping (Data?, URLResponse?, Error?) -> ()) {
+        URLSession.shared.dataTask(with: url, completionHandler: completion).resume()
+    }
+    
+    private func downloadImage(from url: URL, type: UrlType) {
+        if UIApplication.shared.canOpenURL(url) {
+            getData(from: url) { data, response, error in
+                if let data = data, error == nil {
+                    
+                    DispatchQueue.main.async() { [weak self] in
+                        switch type {
+                        case .icon:
+                            self?.icon?.image = UIImage(data: data)
+                        case .pagemedia:
+                            self?.media?.image = UIImage(data: data)
+                        }
+                    }
+                }
+            }
+        }
     }
     
     public func configure(with viewModel: MainPageViewModel) {
@@ -136,10 +198,22 @@ class MainPageTableViewCell: UITableViewCell {
         commentsButton.setTitle(validateCount(count: viewModel.data.numComments), for: .normal)
         voteButton.setTitle(validateCount(count: viewModel.data.score), for: .normal)
         
-//        if let urlString = viewModel.data.preview?.images.first?.source.url {
-//            if let url = URL(string: urlString) {
-//                downloadImage(from: url)
-//            }
-//        }
+        if let url = URL(string: viewModel.data.thumbnail) {
+            setupMedia()
+            downloadImage(from: url, type: .pagemedia)
+        }
+        
+        if let iconStringUrl = viewModel.data.allAwardings.first?.iconURL, let url = URL(string: iconStringUrl) {
+            setupIcon()
+            downloadImage(from: url, type: .icon)
+        }
+        
+        self.layoutIfNeeded()
     }
+}
+
+// MARK: - UrlType enum
+
+enum UrlType {
+    case icon, pagemedia
 }

@@ -11,12 +11,18 @@ class MainPageViewController: UIViewController, UITableViewDelegate, UITableView
     
     @IBOutlet var mainTableView: UITableView!
     var pageModel: PageModel?
+    var activityIndicator = UIActivityIndicatorView(style: .large)
     
     override func viewDidLoad() {
         super.viewDidLoad()
         mainTableView.register(MainPageTableViewCell.nib(), forCellReuseIdentifier: MainPageTableViewCell.cellIdentifier)
         mainTableView.delegate = self
         mainTableView.dataSource = self
+        activityIndicator.color = .red
+        activityIndicator.center = mainTableView.center
+        mainTableView.addSubview(activityIndicator)
+        self.activityIndicator.startAnimating()
+        self.activityIndicator.hidesWhenStopped = true
         parseData()
     }
     
@@ -30,6 +36,7 @@ class MainPageViewController: UIViewController, UITableViewDelegate, UITableView
                 self.parse(jsonData: data)
                 DispatchQueue.main.async {
                     self.mainTableView.reloadData()
+                    self.activityIndicator.stopAnimating()
                 }
             case .failure(let error):
                 print(error)
