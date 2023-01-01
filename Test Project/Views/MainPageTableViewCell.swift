@@ -71,8 +71,10 @@ class MainPageTableViewCell: UITableViewCell {
         
         userName.snp.makeConstraints { make in
             make.top.equalTo(10)
-            if let icon = icon {
+            if !(icon.isHidden) {
                 make.left.equalTo(icon.snp.right).offset(5)
+            } else {
+                make.left.equalToSuperview().offset(35)
             }
         }
         
