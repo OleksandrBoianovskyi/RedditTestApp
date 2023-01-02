@@ -5,7 +5,6 @@
 //  Created by Oleksandr Boianovskyi on 05.09.2022.
 //
 
-import UIKit
 import Foundation
 
 // MARK: - PageModel
@@ -14,22 +13,23 @@ struct PageModel: Codable {
     let data: Posts
 }
 
-// MARK: - Post
+// MARK: - Posts
 struct Posts: Codable {
     let children: [Post]
 }
 
-// MARK: - Child
+// MARK: - Post
 struct Post: Codable {
     let data: PostData
 }
 
-// MARK: - ChildData
+// MARK: - PostData
 struct PostData: Codable {
     let title: String
     let subredditNamePrefixed: String
     let numComments: Int
     let score: Int
+    let subreddit: String
     let thumbnail: String
     let media: Media?
     let isVideo: Bool
@@ -37,6 +37,7 @@ struct PostData: Codable {
     let totalAwardsReceived: Int
     let authorFullname: String
     let urlOverriddenByDest: String
+    let url: String
     
     enum CodingKeys: String, CodingKey {
         case thumbnail
@@ -50,9 +51,13 @@ struct PostData: Codable {
         case totalAwardsReceived = "total_awards_received"
         case authorFullname = "author_fullname"
         case urlOverriddenByDest = "url_overridden_by_dest"
+        case thumbnailHeight = "thumbnail_height"
+        case thumbnailWidth = "thumbnail_width"
+        case subreddit
+        case url
     }
     
-    init(title: String, subredditNamePrefixed: String, numComments: Int, score: Int, thumbnail: String, allAwardings: [AllAwarding], media: Media?, isVideo: Bool, totalAwardsReceived: Int, authorFullname: String, urlOverriddenByDest: String) {
+    init(title: String, subredditNamePrefixed: String, numComments: Int, score: Int, thumbnail: String, allAwardings: [AllAwarding], media: Media?, isVideo: Bool, totalAwardsReceived: Int, authorFullname: String, urlOverriddenByDest: String, subreddit: String, url: String) {
         self.title = title
         self.subredditNamePrefixed = subredditNamePrefixed
         self.numComments = numComments
@@ -64,6 +69,8 @@ struct PostData: Codable {
         self.totalAwardsReceived = totalAwardsReceived
         self.authorFullname = authorFullname
         self.urlOverriddenByDest = urlOverriddenByDest
+        self.subreddit = subreddit
+        self.url = url
     }
     
     init(from decoder: Decoder) throws {
@@ -79,6 +86,8 @@ struct PostData: Codable {
         totalAwardsReceived = try values.decode(Int.self, forKey: .totalAwardsReceived)
         authorFullname = try values.decode(String.self, forKey: .authorFullname)
         urlOverriddenByDest = try values.decode(String.self, forKey: .urlOverriddenByDest)
+        subreddit = try values.decode(String.self, forKey: .subreddit)
+        url = try values.decode(String.self, forKey: .url)
     }
     
     public func encode(to encoder: Encoder) throws {

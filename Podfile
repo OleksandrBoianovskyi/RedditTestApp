@@ -5,7 +5,7 @@ target 'Test Project' do
   
   
   pod 'SnapKit'
-
+  pod 'AVKit'
  
 
 end

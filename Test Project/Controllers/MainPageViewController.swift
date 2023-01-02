@@ -6,8 +6,14 @@
 //
 
 import UIKit
+import AVKit
 
-class MainPageViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
+class MainPageViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, VideoDeledate {
+    func presentVideo(with viewController: AVPlayerViewController) {
+        self.present(viewController, animated: true)
+        viewController.player?.play()
+    }
+    
     
     @IBOutlet var mainTableView: UITableView!
     var pageModel: PageModel?
@@ -78,7 +84,7 @@ class MainPageViewController: UIViewController, UITableViewDelegate, UITableView
         let cell = tableView.dequeueReusableCell(withIdentifier:  MainPageTableViewCell.cellIdentifier, for: indexPath) as! MainPageTableViewCell
         if let pageModel = pageModel {
             let viewModel = MainPageViewModel(with: pageModel.data.children[indexPath.row].data)
-            
+            cell.delegate = self
             cell.configure(with: viewModel)
         }
         

@@ -7,6 +7,12 @@
 
 import UIKit
 import SnapKit
+import AVKit
+import AVFoundation
+
+protocol VideoDeledate {
+    func presentVideo(with viewController: AVPlayerViewController)
+}
 
 class MainPageTableViewCell: UITableViewCell {
     
@@ -21,6 +27,13 @@ class MainPageTableViewCell: UITableViewCell {
     var settingButton: UIButton!
     var media: UIImageView!
     var icon: UIImageView!
+    var authorFullName: UILabel!
+    var playButt: UIButton?
+    
+    var playerViewController = AVPlayerViewController()
+    var playerView = AVPlayer()
+    var delegate: VideoDeledate?
+    var vidStr: String?
     
     // MARK: - Cell methods
     
@@ -30,9 +43,6 @@ class MainPageTableViewCell: UITableViewCell {
     
     override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
-        cellPrepare()
-        makeContrains()
-        setupUI()
     }
     
     override func prepareForReuse() {
@@ -44,6 +54,9 @@ class MainPageTableViewCell: UITableViewCell {
         hoursAgoCreated.removeFromSuperview()
         commentsButton.removeFromSuperview()
         settingButton.removeFromSuperview()
+        authorFullName.removeFromSuperview()
+        playButt?.removeFromSuperview()
+        vidStr = ""
     }
     
     static func nib() -> UINib {
@@ -52,7 +65,7 @@ class MainPageTableViewCell: UITableViewCell {
     
     
     // MARK: - Setup UI methods
-    
+    // TODO: need to refactor this
     func cellPrepare() {
         self.addSubview(userName)
         self.addSubview(hoursAgoCreated)
@@ -60,14 +73,46 @@ class MainPageTableViewCell: UITableViewCell {
         self.addSubview(commentsButton)
         self.addSubview(voteButton)
         self.addSubview(settingButton)
+        self.addSubview(icon)
+        self.addSubview(media)
+        self.addSubview(authorFullName)
     }
     
-    func makeContrains() {
-        userName.sizeToFit()
-        hoursAgoCreated.sizeToFit()
-        settingButton.sizeToFit()
+    func makeContrains(with viewModel: MainPageViewModel) {
         voteButton.titleLabel?.textAlignment = .center
         commentsButton.titleLabel?.textAlignment = .center
+        
+        media.layer.masksToBounds = true
+        media.layer.cornerRadius = 5
+        media.snp.makeConstraints { make in
+            make.top.equalTo(self.pageText.snp.bottom).offset(5)
+            make.centerX.equalTo(self.snp.centerX)
+            make.height.equalTo(400)
+            make.width.equalTo(391)
+        }
+        media.addSubview(playButt!)
+        
+        if viewModel.data.isVideo {
+            playButt?.isHidden = false
+            playButt?.snp.makeConstraints({ make in
+                make.center.equalTo(self.media.snp.center)
+                make.width.equalTo(80)
+                make.height.equalTo(80)
+            })
+            playButt?.setTitle("play", for: .normal)
+        } else {
+            playButt?.isHidden = true
+        }
+        
+        
+        icon.layer.masksToBounds = true
+        icon.layer.cornerRadius = 5
+        icon.snp.makeConstraints { make in
+            make.top.equalTo(14)
+            make.leading.equalTo(15)
+            make.height.equalTo(30)
+            make.width.equalTo(30)
+        }
         
         userName.snp.makeConstraints { make in
             make.top.equalTo(10)
@@ -78,32 +123,42 @@ class MainPageTableViewCell: UITableViewCell {
             }
         }
         
-        hoursAgoCreated.snp.makeConstraints { make in
-            make.top.equalTo(10)
-            make.left.equalTo(self.userName.snp.right).offset(5)
-            if !(media.isHidden) {
-                make.right.lessThanOrEqualTo(media.snp.left).offset(-5)
+        authorFullName.snp.makeConstraints { make in
+            make.top.equalTo(self.userName.snp.bottom).offset(2)
+            if !(icon.isHidden) {
+                make.left.equalTo(icon.snp.right).offset(5)
             } else {
-                make.right.lessThanOrEqualToSuperview().offset(5)
+                make.left.equalToSuperview().offset(35)
             }
+            if let title = voteButton.titleLabel {
+                make.width.equalTo(title.snp.width).offset(16)
+            }
+        }
+        
+        hoursAgoCreated.snp.makeConstraints { make in
+            make.top.equalTo(self.authorFullName.snp.top)
+            make.left.equalTo(self.authorFullName.snp.right).offset(5)
+            make.right.lessThanOrEqualToSuperview().offset(5)
         }
         
         pageText.snp.makeConstraints { make in
-            make.top.equalTo(self.userName.snp.bottom).offset(8)
+            make.top.equalTo(self.authorFullName.snp.bottom).offset(8)
             make.leading.equalTo(15)
-            if !(media.isHidden) {
-                make.right.lessThanOrEqualTo(media.snp.left).offset(-10)
-            } else {
-                make.right.lessThanOrEqualToSuperview().offset(-5)
-            }
+            make.right.lessThanOrEqualToSuperview().offset(-5)
         }
         
         // TODO: for future / vote butt
-//        voteButton.addTarget(self, action: #selector(tapVoteButton), for: .touchUpInside)
+        //        voteButton.addTarget(self, action: #selector(tapVoteButton), for: .touchUpInside)
         voteButton.snp.makeConstraints { make in
-            make.top.equalTo(self.pageText.snp.bottom).offset(8)
+            
             make.bottom.equalTo(-10)
-            make.leading.equalTo(15)
+            make.left.equalTo(15)
+            
+            if !(media.isHidden) {
+                make.top.equalTo(self.media.snp.bottom).offset(8)
+            } else {
+                make.top.equalTo(self.pageText.snp.bottom).offset(8)
+            }
             
             if let title = voteButton.titleLabel {
                 make.width.equalTo(title.snp.width).offset(16)
@@ -111,67 +166,44 @@ class MainPageTableViewCell: UITableViewCell {
         }
         
         commentsButton.snp.makeConstraints { make in
-            make.top.equalTo(self.pageText.snp.bottom).offset(8)
+            make.top.equalTo(self.voteButton.snp.top)
             make.left.equalTo(self.voteButton.snp.right).offset(8)
             
             if let title = commentsButton.titleLabel {
                 make.width.equalTo(title.snp.width).offset(16)
             }
         }
-    }
-    
-    private func setupMedia() {
-        media = UIImageView()
-        self.addSubview(media)
-        media.layer.masksToBounds = true
-        media.layer.cornerRadius = 5
-        media.snp.makeConstraints { make in
-            make.top.equalTo(10)
-            make.right.equalTo(-15)
-            make.bottom.lessThanOrEqualToSuperview().offset(-10)
-            make.height.equalTo(75)
-            make.width.equalTo(95)
-        }
         
         self.layoutIfNeeded()
     }
     
-    private func setupIcon() {
-        icon = UIImageView()
-        self.addSubview(icon)
-        icon.layer.masksToBounds = true
-        icon.layer.cornerRadius = 5
-        icon.snp.makeConstraints { make in
-            make.top.equalTo(14)
-            make.leading.equalTo(15)
-            make.height.equalTo(15)
-            make.width.equalTo(15)
+    @objc func tapOnMedia() {
+        if let videoString = vidStr {
+            playVideo(videoString: videoString)
         }
-        
-        self.layoutIfNeeded()
     }
     
     private func setupUI() {
         pageText.numberOfLines = 0
+        pageText.font = UIFont.boldSystemFont(ofSize: 15.0)
         pageText.setContentCompressionResistancePriority(.required, for: .vertical)
         commentsButton.backgroundColor = .clear
-        commentsButton.layer.cornerRadius = 18
-        commentsButton.layer.borderWidth = 0.5
-        commentsButton.layer.borderColor = UIColor.gray.cgColor
-        voteButton.layer.cornerRadius = 18
-        voteButton.layer.borderWidth = 0.5
-        voteButton.layer.borderColor = UIColor.gray.cgColor
         voteButton.setTitleColor(.gray, for: .normal)
         commentsButton.setTitleColor(.gray, for: .normal)
+        userName.textColor = .gray
+        userName.font = UIFont.systemFont(ofSize: 12)
+        hoursAgoCreated.font = UIFont.systemFont(ofSize: 12)
+        authorFullName.font = UIFont.systemFont(ofSize: 12)
         hoursAgoCreated.textColor = .gray
+        authorFullName.textColor = .gray
     }
     
     // TODO: for future / vote butt
     
-//    @objc func tapVoteButton(sender: UIButton!) {
-//        voteButton.backgroundColor = .systemBlue
-//        voteButton.setTitleColor(.white, for: .normal)
-//    }
+    //    @objc func tapVoteButton(sender: UIButton!) {
+    //        voteButton.backgroundColor = .systemBlue
+    //        voteButton.setTitleColor(.white, for: .normal)
+    //    }
     
     // MARK: - Business logic
     
@@ -204,7 +236,38 @@ class MainPageTableViewCell: UITableViewCell {
         }
     }
     
+    func getVideoFromURL(from url: URL, completion: @escaping ((UIImage?)) -> ()) {
+        DispatchQueue.global().async {
+            let asset = AVAsset(url: url)
+            let avAssetImageGenerator = AVAssetImageGenerator(asset: asset)
+            avAssetImageGenerator.appliesPreferredTrackTransform = true
+            let thumblailTime = CMTimeMake(value: 2, timescale: 2)
+            do {
+                let cgThumbImage = try avAssetImageGenerator.copyCGImage(at: thumblailTime, actualTime: nil)
+                let thumbImage = UIImage(cgImage: cgThumbImage)
+                
+                DispatchQueue.main.async {
+                    completion(thumbImage)
+                }
+                
+            } catch {
+                print(error.localizedDescription)
+            }
+        }
+    }
+    
+    func playVideo(videoString: String) {
+        guard let url = URL(string: videoString) else { return }
+        playerView = AVPlayer(url: url)
+        playerViewController.player = playerView
+        
+        delegate?.presentVideo(with: playerViewController)
+    }
+    
     private func createItems() {
+        media = UIImageView()
+        icon = UIImageView()
+        playButt = UIButton()
         voteButton = UIButton()
         hoursAgoCreated = UILabel()
         pageText = UILabel()
@@ -213,6 +276,59 @@ class MainPageTableViewCell: UITableViewCell {
         settingButton = UIButton()
         icon = UIImageView()
         media = UIImageView()
+        authorFullName = UILabel()
+    }
+    
+    private func createUserName(with viewModel: MainPageViewModel) -> NSAttributedString {
+        let attrs1 = [NSAttributedString.Key.font : UIFont.systemFont(ofSize: 12), NSAttributedString.Key.foregroundColor : UIColor.gray]
+        let attrs2 = [NSAttributedString.Key.font : UIFont.boldSystemFont(ofSize: 12), NSAttributedString.Key.foregroundColor : UIColor.gray]
+        
+        let attributedString1 = NSMutableAttributedString(string: "r/", attributes: attrs1)
+        let attributedString2 = NSMutableAttributedString(string: viewModel.data.subreddit, attributes: attrs2)
+        
+        attributedString1.append(attributedString2)
+        
+        return attributedString1
+    }
+    
+    private func setupData(with viewModel: MainPageViewModel) {
+        userName.attributedText = createUserName(with: viewModel)
+        hoursAgoCreated.text = "· 10" + "h"
+        pageText.text = viewModel.data.title
+        commentsButton.setTitle(String(viewModel.data.numComments), for: .normal)
+        voteButton.setTitle(validateCount(count: viewModel.data.score), for: .normal)
+        authorFullName.text = "u/" + viewModel.data.authorFullname
+        if let video = viewModel.data.media?.redditVideo {
+            self.vidStr = video.fallbackURL
+        }
+        
+        if !(viewModel.data.isVideo), let url = URL(string: viewModel.data.url),
+           UIApplication.shared.canOpenURL(url) {
+            downloadImage(from: url, type: .pagemedia)
+            
+        } else if viewModel.data.isVideo, let url = URL(string: (viewModel.data.media?.redditVideo!.fallbackURL)!)  {
+            
+            let tap = UITapGestureRecognizer(target: self, action: #selector(tapOnMedia))
+            media.isUserInteractionEnabled = true
+            media.addGestureRecognizer(tap)
+            
+            getVideoFromURL(from: url) { (thumbImage) in
+                self.media.image = thumbImage
+            }
+        } else {
+            media.isHidden = true
+            
+        }
+        
+        if !(viewModel.data.allAwardings.isEmpty),
+           let iconStringUrl = viewModel.data.allAwardings.first?.iconURL,
+           let url = URL(string: iconStringUrl),
+           UIApplication.shared.canOpenURL(url) {
+            
+            downloadImage(from: url, type: .icon)
+        } else {
+            icon.isHidden = true
+        }
     }
     
     public func configure(with viewModel: MainPageViewModel) {
@@ -220,29 +336,10 @@ class MainPageTableViewCell: UITableViewCell {
             createItems()
         }
         
-        userName.text = viewModel.data.subredditNamePrefixed
-        hoursAgoCreated.text = "· 10" + "h"
-        pageText.text = viewModel.data.title
-        commentsButton.setTitle(validateCount(count: viewModel.data.numComments), for: .normal)
-        voteButton.setTitle(validateCount(count: viewModel.data.score), for: .normal)
-        
-        if let url = URL(string: viewModel.data.thumbnail),
-            UIApplication.shared.canOpenURL(url) {
-            setupMedia()
-            downloadImage(from: url, type: .pagemedia)
-        } else {
-            media.isHidden = true
-        }
-        
-        if !(viewModel.data.allAwardings.isEmpty),
-            let iconStringUrl = viewModel.data.allAwardings.first?.iconURL,
-            let url = URL(string: iconStringUrl),
-            UIApplication.shared.canOpenURL(url) {
-            setupIcon()
-            downloadImage(from: url, type: .icon)
-        } else {
-            icon.isHidden = true
-        }
+        cellPrepare()
+        makeContrains(with: viewModel)
+        setupUI()
+        setupData(with: viewModel)
         
         self.layoutIfNeeded()
     }
