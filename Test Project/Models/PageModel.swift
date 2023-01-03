@@ -36,7 +36,7 @@ struct PostData: Codable {
     let allAwardings: [AllAwarding]
     let totalAwardsReceived: Int
     let authorFullname: String
-    let urlOverriddenByDest: String
+//    let urlOverriddenByDest: String?
     let url: String
     
     enum CodingKeys: String, CodingKey {
@@ -50,14 +50,14 @@ struct PostData: Codable {
         case isVideo = "is_video"
         case totalAwardsReceived = "total_awards_received"
         case authorFullname = "author_fullname"
-        case urlOverriddenByDest = "url_overridden_by_dest"
+//        case urlOverriddenByDest = "url_overridden_by_dest"
         case thumbnailHeight = "thumbnail_height"
         case thumbnailWidth = "thumbnail_width"
         case subreddit
         case url
     }
     
-    init(title: String, subredditNamePrefixed: String, numComments: Int, score: Int, thumbnail: String, allAwardings: [AllAwarding], media: Media?, isVideo: Bool, totalAwardsReceived: Int, authorFullname: String, urlOverriddenByDest: String, subreddit: String, url: String) {
+    init(title: String, subredditNamePrefixed: String, numComments: Int, score: Int, thumbnail: String, allAwardings: [AllAwarding], media: Media?, isVideo: Bool, totalAwardsReceived: Int, authorFullname: String, subreddit: String, url: String) {
         self.title = title
         self.subredditNamePrefixed = subredditNamePrefixed
         self.numComments = numComments
@@ -68,7 +68,7 @@ struct PostData: Codable {
         self.isVideo = isVideo
         self.totalAwardsReceived = totalAwardsReceived
         self.authorFullname = authorFullname
-        self.urlOverriddenByDest = urlOverriddenByDest
+//        self.urlOverriddenByDest = urlOverriddenByDest
         self.subreddit = subreddit
         self.url = url
     }
@@ -85,7 +85,7 @@ struct PostData: Codable {
         isVideo = try values.decode(Bool.self, forKey: .isVideo)
         totalAwardsReceived = try values.decode(Int.self, forKey: .totalAwardsReceived)
         authorFullname = try values.decode(String.self, forKey: .authorFullname)
-        urlOverriddenByDest = try values.decode(String.self, forKey: .urlOverriddenByDest)
+//        urlOverriddenByDest = try values.decode(String?.self, forKey: .urlOverriddenByDest)
         subreddit = try values.decode(String.self, forKey: .subreddit)
         url = try values.decode(String.self, forKey: .url)
     }
