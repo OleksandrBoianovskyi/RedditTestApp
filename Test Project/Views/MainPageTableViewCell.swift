@@ -7,43 +7,54 @@
 
 import UIKit
 import SnapKit
+import AVKit
+import AVFoundation
+
+protocol VideoDeledate {
+    func presentVideo(with viewController: AVPlayerViewController)
+    func presentViewController(_ viewControllerToPresent: UIViewController, animated flag: Bool)
+}
 
 class MainPageTableViewCell: UITableViewCell {
     
     // MARK: - Properties
     
     static let cellIdentifier = "MainPageTableViewCell"
-    var userName: UILabel!
-    var hoursAgoCreated: UILabel!
-    var pageText: UILabel!
-    var commentsButton: UIButton!
-    var voteButton: UIButton!
-    var settingButton: UIButton!
-    var media: UIImageView!
-    var icon: UIImageView!
+    
+    @IBOutlet weak var icon: UIImageView!
+    @IBOutlet weak var userName: UILabel!
+    @IBOutlet weak var authorFullName: UILabel!
+    @IBOutlet weak var hourAgoCreated: UILabel!
+    @IBOutlet weak var settingButton: UIButton!
+    @IBOutlet weak var media: UIImageView!
+    @IBOutlet weak var pageText: UILabel!
+    @IBOutlet weak var upVoteButton: UIButton!
+    @IBOutlet weak var downVoteButton: UIButton!
+    @IBOutlet weak var score: UIButton!
+    @IBOutlet weak var commentButton: UIButton!
+    @IBOutlet weak var playImage: UIImageView!
+    
+    var playerViewController = AVPlayerViewController()
+    var playerView = AVPlayer()
+    var delegate: VideoDeledate?
+    var vidStr: String?
+    var viewModell: MainPageViewModel?
     
     // MARK: - Cell methods
     
     override func awakeFromNib() {
         super.awakeFromNib()
+        playImage.isHidden = true
     }
     
     override func setSelected(_ selected: Bool, animated: Bool) {
         super.setSelected(selected, animated: animated)
-        cellPrepare()
-        makeContrains()
-        setupUI()
     }
     
     override func prepareForReuse() {
         super.prepareForReuse()
-        media.removeFromSuperview()
-        voteButton.removeFromSuperview()
-        icon.removeFromSuperview()
-        userName.removeFromSuperview()
-        hoursAgoCreated.removeFromSuperview()
-        commentsButton.removeFromSuperview()
-        settingButton.removeFromSuperview()
+        vidStr = ""
+        playImage.isHidden = true
     }
     
     static func nib() -> UINib {
@@ -53,123 +64,60 @@ class MainPageTableViewCell: UITableViewCell {
     
     // MARK: - Setup UI methods
     
-    func cellPrepare() {
-        self.addSubview(userName)
-        self.addSubview(hoursAgoCreated)
-        self.addSubview(pageText)
-        self.addSubview(commentsButton)
-        self.addSubview(voteButton)
-        self.addSubview(settingButton)
-    }
-    
-    func makeContrains() {
-        userName.sizeToFit()
-        hoursAgoCreated.sizeToFit()
-        settingButton.sizeToFit()
-        voteButton.titleLabel?.textAlignment = .center
-        commentsButton.titleLabel?.textAlignment = .center
-        
-        userName.snp.makeConstraints { make in
-            make.top.equalTo(10)
-            if let icon = icon {
-                make.left.equalTo(icon.snp.right).offset(5)
-            }
-        }
-        
-        hoursAgoCreated.snp.makeConstraints { make in
-            make.top.equalTo(10)
-            make.left.equalTo(self.userName.snp.right).offset(5)
-            if !(media.isHidden) {
-                make.right.lessThanOrEqualTo(media.snp.left).offset(-5)
-            } else {
-                make.right.lessThanOrEqualToSuperview().offset(5)
-            }
-        }
-        
-        pageText.snp.makeConstraints { make in
-            make.top.equalTo(self.userName.snp.bottom).offset(8)
-            make.leading.equalTo(15)
-            if !(media.isHidden) {
-                make.right.lessThanOrEqualTo(media.snp.left).offset(-10)
-            } else {
-                make.right.lessThanOrEqualToSuperview().offset(-5)
-            }
-        }
-        
-        // TODO: for future / vote butt
-//        voteButton.addTarget(self, action: #selector(tapVoteButton), for: .touchUpInside)
-        voteButton.snp.makeConstraints { make in
-            make.top.equalTo(self.pageText.snp.bottom).offset(8)
-            make.bottom.equalTo(-10)
-            make.leading.equalTo(15)
-            
-            if let title = voteButton.titleLabel {
-                make.width.equalTo(title.snp.width).offset(16)
-            }
-        }
-        
-        commentsButton.snp.makeConstraints { make in
-            make.top.equalTo(self.pageText.snp.bottom).offset(8)
-            make.left.equalTo(self.voteButton.snp.right).offset(8)
-            
-            if let title = commentsButton.titleLabel {
-                make.width.equalTo(title.snp.width).offset(16)
-            }
-        }
-    }
-    
-    private func setupMedia() {
-        media = UIImageView()
-        self.addSubview(media)
-        media.layer.masksToBounds = true
-        media.layer.cornerRadius = 5
-        media.snp.makeConstraints { make in
-            make.top.equalTo(10)
-            make.right.equalTo(-15)
-            make.bottom.lessThanOrEqualToSuperview().offset(-10)
-            make.height.equalTo(75)
-            make.width.equalTo(95)
-        }
-        
-        self.layoutIfNeeded()
-    }
-    
-    private func setupIcon() {
-        icon = UIImageView()
-        self.addSubview(icon)
-        icon.layer.masksToBounds = true
-        icon.layer.cornerRadius = 5
-        icon.snp.makeConstraints { make in
-            make.top.equalTo(14)
-            make.leading.equalTo(15)
-            make.height.equalTo(15)
-            make.width.equalTo(15)
-        }
-        
-        self.layoutIfNeeded()
-    }
-    
     private func setupUI() {
-        pageText.numberOfLines = 0
         pageText.setContentCompressionResistancePriority(.required, for: .vertical)
-        commentsButton.backgroundColor = .clear
-        commentsButton.layer.cornerRadius = 18
-        commentsButton.layer.borderWidth = 0.5
-        commentsButton.layer.borderColor = UIColor.gray.cgColor
-        voteButton.layer.cornerRadius = 18
-        voteButton.layer.borderWidth = 0.5
-        voteButton.layer.borderColor = UIColor.gray.cgColor
-        voteButton.setTitleColor(.gray, for: .normal)
-        commentsButton.setTitleColor(.gray, for: .normal)
-        hoursAgoCreated.textColor = .gray
+        hourAgoCreated.textColor = .gray
+        authorFullName.textColor = .gray
+        if media.isHidden {
+            upVoteButton.snp.makeConstraints { make in
+                make.top.equalTo(self.pageText.snp.bottom).offset(5)
+            }
+        }
     }
     
     // TODO: for future / vote butt
     
-//    @objc func tapVoteButton(sender: UIButton!) {
-//        voteButton.backgroundColor = .systemBlue
-//        voteButton.setTitleColor(.white, for: .normal)
-//    }
+    @IBAction func tapOnUpVote(_ sender: Any) {
+        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup.fill"), for: .normal)
+        upVoteButton.tintColor = .orange
+        score.setTitleColor(.orange, for: .normal)
+        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown"), for: .normal)
+        downVoteButton.tintColor = .darkGray
+    }
+    
+    @IBAction func tapOnDownVote(_ sender: Any) {
+        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown.fill"), for: .normal)
+        downVoteButton.tintColor = .purple
+        score.setTitleColor(.purple, for: .normal)
+        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup"), for: .normal)
+        upVoteButton.tintColor = .darkGray
+    }
+    
+    @IBAction func tapOnScoreButton(_ sender: Any) {
+        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup"), for: .normal)
+        upVoteButton.tintColor = .darkGray
+        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown"), for: .normal)
+        downVoteButton.tintColor = .darkGray
+        score.setTitleColor(.gray, for: .normal)
+    }
+    
+    @IBAction func tapOnCommentButton(_ sender: Any) {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        let vc = storyboard.instantiateViewController(withIdentifier: "CommentViewController") as! CommentViewController
+        vc.modalPresentationStyle = .fullScreen
+        
+        delegate?.presentViewController(vc, animated: true)
+        if let viewModel = viewModell {
+            vc.setup(with: viewModel)
+        }
+
+    }
+    
+    @objc func tapOnMedia() {
+        if let videoString = vidStr {
+            playVideo(videoString: videoString)
+        }
+    }
     
     // MARK: - Business logic
     
@@ -202,47 +150,95 @@ class MainPageTableViewCell: UITableViewCell {
         }
     }
     
-    private func createItems() {
-        voteButton = UIButton()
-        hoursAgoCreated = UILabel()
-        pageText = UILabel()
-        commentsButton = UIButton()
-        userName = UILabel()
-        settingButton = UIButton()
-        icon = UIImageView()
-        media = UIImageView()
+    func getVideoFromURL(from url: URL, completion: @escaping ((UIImage?)) -> ()) {
+        DispatchQueue.global().async {
+            let asset = AVAsset(url: url)
+            let avAssetImageGenerator = AVAssetImageGenerator(asset: asset)
+            avAssetImageGenerator.appliesPreferredTrackTransform = true
+            let thumblailTime = CMTimeMake(value: 2, timescale: 2)
+            do {
+                let cgThumbImage = try avAssetImageGenerator.copyCGImage(at: thumblailTime, actualTime: nil)
+                let thumbImage = UIImage(cgImage: cgThumbImage)
+                
+                DispatchQueue.main.async {
+                    completion(thumbImage)
+                }
+                
+            } catch {
+                print(error.localizedDescription)
+            }
+        }
     }
     
-    public func configure(with viewModel: MainPageViewModel) {
-        if userName == nil {
-            createItems()
+    func playVideo(videoString: String) {
+        guard let url = URL(string: videoString) else { return }
+        playerView = AVPlayer(url: url)
+        playerViewController.player = playerView
+        
+        delegate?.presentVideo(with: playerViewController)
+    }
+    
+    private func createUserName(with viewModel: MainPageViewModel) -> NSAttributedString {
+        let attrs1 = [NSAttributedString.Key.font : UIFont.systemFont(ofSize: 12), NSAttributedString.Key.foregroundColor : UIColor.gray]
+        let attrs2 = [NSAttributedString.Key.font : UIFont.boldSystemFont(ofSize: 12), NSAttributedString.Key.foregroundColor : UIColor.gray]
+        
+        let attributedString1 = NSMutableAttributedString(string: "r/", attributes: attrs1)
+        let attributedString2 = NSMutableAttributedString(string: viewModel.data.subreddit, attributes: attrs2)
+        
+        attributedString1.append(attributedString2)
+        
+        return attributedString1
+    }
+    
+    private func setupData(with viewModel: MainPageViewModel) {
+        self.viewModell = viewModel
+        
+        userName.attributedText = createUserName(with: viewModel)
+        hourAgoCreated.text = "· 10" + "h"
+        pageText.text = viewModel.data.title
+        commentButton.setTitle(String(viewModel.data.numComments), for: .normal)
+        score.setTitle(validateCount(count: viewModel.data.score), for: .normal)
+        authorFullName.text = "u/" + viewModel.data.authorFullname
+        if let video = viewModel.data.media?.redditVideo {
+            self.vidStr = video.fallbackURL
         }
         
-        userName.text = viewModel.data.subredditNamePrefixed
-        hoursAgoCreated.text = "· 10" + "h"
-        pageText.text = viewModel.data.title
-        commentsButton.setTitle(validateCount(count: viewModel.data.numComments), for: .normal)
-        voteButton.setTitle(validateCount(count: viewModel.data.score), for: .normal)
-        
-        if let url = URL(string: viewModel.data.thumbnail),
-            UIApplication.shared.canOpenURL(url) {
-            setupMedia()
+        if !(viewModel.data.isVideo), let url = URL(string: viewModel.data.url),
+           UIApplication.shared.canOpenURL(url),
+           !(viewModel.data.thumbnail.isEmpty) {
             downloadImage(from: url, type: .pagemedia)
+            
+        } else if viewModel.data.isVideo, let url = URL(string: (viewModel.data.media?.redditVideo!.fallbackURL)!)  {
+            
+            let tap = UITapGestureRecognizer(target: self, action: #selector(tapOnMedia))
+            media.isUserInteractionEnabled = true
+            media.addGestureRecognizer(tap)
+            
+            getVideoFromURL(from: url) { (thumbImage) in
+                self.media.image = thumbImage
+            }
         } else {
             media.isHidden = true
+            
         }
         
         if !(viewModel.data.allAwardings.isEmpty),
-            let iconStringUrl = viewModel.data.allAwardings.first?.iconURL,
-            let url = URL(string: iconStringUrl),
-            UIApplication.shared.canOpenURL(url) {
-            setupIcon()
+           let iconStringUrl = viewModel.data.allAwardings.first?.iconURL,
+           let url = URL(string: iconStringUrl),
+           UIApplication.shared.canOpenURL(url) {
+            
             downloadImage(from: url, type: .icon)
         } else {
             icon.isHidden = true
         }
-        
-        self.layoutIfNeeded()
+    }
+    
+    public func configure(with viewModel: MainPageViewModel) {
+        if viewModel.data.isVideo {
+            playImage.isHidden = false
+        }
+        setupData(with: viewModel)
+        setupUI()
     }
 }
 

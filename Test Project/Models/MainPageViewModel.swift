@@ -8,9 +8,9 @@
 import Foundation
 
 struct MainPageViewModel {
-    let data: ChildData
+    let data: PostData
     
-    init(with data: ChildData) {
+    init(with data: PostData) {
         self.data = data
     }
 }
