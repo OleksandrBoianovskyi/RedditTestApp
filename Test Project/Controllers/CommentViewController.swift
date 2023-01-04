@@ -8,6 +8,7 @@
 import UIKit
 import AVKit
 import AVFoundation
+import SafariServices
 
 class CommentViewController: UIViewController {
     
@@ -24,6 +25,7 @@ class CommentViewController: UIViewController {
     @IBOutlet weak var addCommentTextField: UITextField!
     
     var vidStr: String?
+    var viewModel: MainPageViewModel?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -37,6 +39,7 @@ class CommentViewController: UIViewController {
     }
     
     func setup(with viewModel: MainPageViewModel) {
+        self.viewModel = viewModel
         setupData(with: viewModel)
     }
      
@@ -169,9 +172,47 @@ class CommentViewController: UIViewController {
         score.setTitleColor(.gray, for: .normal)
     }
     
+    
+    @IBAction func tapOnSettingButton(_ sender: Any) {
+        let viewController = SettingViewController(nibName: "SettingViewController", bundle: nil)
+        let navController = UINavigationController(rootViewController: viewController)
+        navController.modalPresentationStyle = .formSheet
+        viewController.viewModel = viewModel
+        
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.custom(resolver: { _ in
+                return viewController.view.frame.height
+            })]
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            sheet.selectedDetentIdentifier = .medium
+        }
+        
+        self.present(navController, animated: true)
+        
+    }
+    
     @IBAction func tapOnMoreComments(_ sender: Any) {
+        makeAlertForComments()
     }
     @IBAction func tapOnAddCommentTextField(_ sender: Any) {
+        makeAlertForComments()
+    }
+    
+    private func makeAlertForComments() {
+        
+        let alert = UIAlertController(title: "The opportunity is blocked", message: "If you want to add a comment, you can do so on the web version of Reddit. Do you want to open the page?", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Yes", style: .default, handler: { (_) in
+            guard let urlString = self.viewModel?.data.url,
+                  let url: URL = URL(string: urlString) else { return }
+            
+            let safari: SFSafariViewController = SFSafariViewController(url: url)
+            self.present(safari, animated: true)
+            }))
+        alert.addAction(UIAlertAction(title: "No", style: .default, handler: { (_) in
+            
+        }))
+        
+        self.present(alert, animated: true)
     }
 }
 

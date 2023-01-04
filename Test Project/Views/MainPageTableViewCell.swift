@@ -113,6 +113,23 @@ class MainPageTableViewCell: UITableViewCell {
 
     }
     
+    @IBAction func tapOnSettingButton(_ sender: Any) {
+        let viewController = SettingViewController(nibName: "SettingViewController", bundle: nil)
+        let navController = UINavigationController(rootViewController: viewController)
+        navController.modalPresentationStyle = .formSheet
+        viewController.viewModel = viewModell
+        
+        if let sheet = navController.sheetPresentationController {
+            sheet.detents = [.custom(resolver: { _ in
+                return viewController.view.frame.height
+            })]
+            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
+            sheet.selectedDetentIdentifier = .medium
+        }
+        
+        delegate?.presentViewController(navController, animated: true)
+    }
+    
     @objc func tapOnMedia() {
         if let videoString = vidStr {
             playVideo(videoString: videoString)
