@@ -12,6 +12,7 @@ import AVFoundation
 
 protocol VideoDeledate {
     func presentVideo(with viewController: AVPlayerViewController)
+    func presentViewController(_ viewControllerToPresent: UIViewController, animated flag: Bool)
 }
 
 class MainPageTableViewCell: UITableViewCell {
@@ -37,6 +38,7 @@ class MainPageTableViewCell: UITableViewCell {
     var playerView = AVPlayer()
     var delegate: VideoDeledate?
     var vidStr: String?
+    var viewModell: MainPageViewModel?
     
     // MARK: - Cell methods
     
@@ -100,7 +102,15 @@ class MainPageTableViewCell: UITableViewCell {
     }
     
     @IBAction func tapOnCommentButton(_ sender: Any) {
+        let storyboard = UIStoryboard(name: "Main", bundle: nil)
+        let vc = storyboard.instantiateViewController(withIdentifier: "CommentViewController") as! CommentViewController
+        vc.modalPresentationStyle = .fullScreen
         
+        delegate?.presentViewController(vc, animated: true)
+        if let viewModel = viewModell {
+            vc.setup(with: viewModel)
+        }
+
     }
     
     @objc func tapOnMedia() {
@@ -181,6 +191,8 @@ class MainPageTableViewCell: UITableViewCell {
     }
     
     private func setupData(with viewModel: MainPageViewModel) {
+        self.viewModell = viewModel
+        
         userName.attributedText = createUserName(with: viewModel)
         hourAgoCreated.text = "· 10" + "h"
         pageText.text = viewModel.data.title

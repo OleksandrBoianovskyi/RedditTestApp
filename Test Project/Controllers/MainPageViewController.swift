@@ -9,6 +9,10 @@ import UIKit
 import AVKit
 
 class MainPageViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, VideoDeledate {
+    func presentViewController(_ viewControllerToPresent: UIViewController, animated flag: Bool) {
+        self.present(viewControllerToPresent, animated: flag)
+    }
+    
     func presentVideo(with viewController: AVPlayerViewController) {
         self.present(viewController, animated: true)
         viewController.player?.play()
