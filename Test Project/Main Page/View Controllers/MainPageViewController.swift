@@ -7,43 +7,51 @@
 
 import UIKit
 import AVKit
+import SnapKit
 
-class MainPageViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, VideoDeledate {
-    func presentViewController(_ viewControllerToPresent: UIViewController, animated flag: Bool) {
-        self.present(viewControllerToPresent, animated: flag)
-    }
+class MainPageViewController: UIViewController {
     
-    func presentVideo(with viewController: AVPlayerViewController) {
-        self.present(viewController, animated: true)
-        viewController.player?.play()
-    }
-    
+    // MARK: - Properties
     
     @IBOutlet var mainTableView: UITableView!
+    
     var pageModel: PageModel?
     var activityIndicator = UIActivityIndicatorView(style: .large)
+    var downloadManager: DownloadManager?
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        downloadManager = DownloadManager(pageViewModel: pageModel, mainPageViewModel: nil)
+        
         mainTableView.register(MainPageTableViewCell.nib(), forCellReuseIdentifier: MainPageTableViewCell.cellIdentifier)
         mainTableView.delegate = self
         mainTableView.dataSource = self
-        activityIndicator.color = .red
-        activityIndicator.center = mainTableView.center
-        mainTableView.addSubview(activityIndicator)
-        self.activityIndicator.startAnimating()
-        self.activityIndicator.hidesWhenStopped = true
+        
+        prepareActivityIndicator()
         parseData()
     }
     
+    // MARK: - SetupUI
     
-    private func parseData() {
+    private func prepareActivityIndicator() {
+        mainTableView.addSubview(activityIndicator)
+        activityIndicator.color = .black
+        activityIndicator.snp.makeConstraints { make in
+            make.center.equalTo(self.mainTableView.snp.center)
+        }
+        activityIndicator.startAnimating()
+        activityIndicator.hidesWhenStopped = true
+    }
+    
+    // MARK: - Business logic
+    
+    func parseData() {
         let urlString = "https://www.reddit.com/top.json"
         
-        self.loadJson(fromURLString: urlString) { (result) in
+        downloadManager?.loadJson(fromURLString: urlString) { (result) in
             switch result {
             case .success(let data):
-                self.parse(jsonData: data)
+                self.pageModel = self.downloadManager?.parse(jsonData: data)
                 DispatchQueue.main.async {
                     self.mainTableView.reloadData()
                     self.activityIndicator.stopAnimating()
@@ -53,33 +61,11 @@ class MainPageViewController: UIViewController, UITableViewDelegate, UITableView
             }
         }
     }
-    
-    private func parse(jsonData: Data) {
-        do {
-            self.pageModel = try JSONDecoder().decode(PageModel.self,
-                                                     from: jsonData)
-        } catch {
-            print("Parse fail with error: \(error)")
-        }
-    }
-    
-    private func loadJson(fromURLString urlString: String,
-                          completion: @escaping (Result<Data, Error>) -> Void) {
-        if let url = URL(string: urlString) {
-            let urlSession = URLSession(configuration: .default).dataTask(with: url) { (data, response, error) in
-                if let error = error {
-                    completion(.failure(error))
-                }
-                
-                if let data = data {
-                    completion(.success(data))
-                }
-            }
-            
-            urlSession.resume()
-        }
-    }
-    
+}
+
+// MARK: - UITableViewDelegate
+
+extension MainPageViewController: UITableViewDelegate {
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return pageModel?.data.children.count ?? 0
     }
@@ -98,5 +84,25 @@ class MainPageViewController: UIViewController, UITableViewDelegate, UITableView
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         mainTableView.deselectRow(at: indexPath, animated: true)
     }
+}
+
+// MARK: - UITableViewDataSource
+
+extension MainPageViewController: UITableViewDataSource { }
+
+// MARK: - VideoDeledate
+
+extension MainPageViewController: VideoDeledate {
+    func dismiss() {
+        self.dismiss(animated: true)
+    }
     
+    func presentViewController(_ viewControllerToPresent: UIViewController, animated flag: Bool) {
+        self.present(viewControllerToPresent, animated: flag)
+    }
+    
+    func presentVideo(with viewController: AVPlayerViewController) {
+        self.present(viewController, animated: true)
+        viewController.player?.play()
+    }
 }

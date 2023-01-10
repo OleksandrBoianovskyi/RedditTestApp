@@ -10,6 +10,8 @@ import SafariServices
 
 class SettingViewController: UIViewController {
 
+    // MARK: - Properties
+    
     @IBOutlet weak var shareButton: UIButton!
     @IBOutlet weak var copyTextButton: UIButton!
     @IBOutlet weak var blockAccountButton: UIButton!
@@ -19,6 +21,7 @@ class SettingViewController: UIViewController {
     
     var viewModel: MainPageViewModel?
     var image: UIImage?
+    let factory = ButtonsActionFactory.defaultFactory
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -26,56 +29,23 @@ class SettingViewController: UIViewController {
         setupButtons()
     }
     
+    // MARK: - SetupUI
+    
     private func setupButtons() {
         shareButton.contentHorizontalAlignment = .left
-        
         copyTextButton.contentHorizontalAlignment = .left
-        
         blockAccountButton.contentHorizontalAlignment = .left
-        
         hideButton.contentHorizontalAlignment = .left
-        
         openInWebButton.contentHorizontalAlignment = .left
-        
         closeButton.layer.cornerRadius = 17.0
-        
-        
     }
     
     // MARK: - IBActions
 
     @IBAction func tapOnShareButton(_ sender: Any) {
-        let firstActivityItem = "Description you want.."
-        
-        guard let url = viewModel?.data.url else { return }
-        let secondActivityItem : NSURL = NSURL(string: url)!
-        
-        let activityViewController : UIActivityViewController = UIActivityViewController(
-            activityItems: [firstActivityItem, secondActivityItem], applicationActivities: nil)
-        
-        activityViewController.popoverPresentationController?.sourceView = (sender as! UIButton)
-        
-        activityViewController.popoverPresentationController?.permittedArrowDirections = UIPopoverArrowDirection.down
-        activityViewController.popoverPresentationController?.sourceRect = CGRect(x: 150, y: 150, width: 0, height: 0)
-        
-        activityViewController.activityItemsConfiguration = [
-            UIActivity.ActivityType.message
-        ] as? UIActivityItemsConfigurationReading
-        
-        activityViewController.excludedActivityTypes = [
-            UIActivity.ActivityType.postToWeibo,
-            UIActivity.ActivityType.print,
-            UIActivity.ActivityType.assignToContact,
-            UIActivity.ActivityType.saveToCameraRoll,
-            UIActivity.ActivityType.addToReadingList,
-            UIActivity.ActivityType.postToFlickr,
-            UIActivity.ActivityType.postToVimeo,
-            UIActivity.ActivityType.postToTencentWeibo,
-            UIActivity.ActivityType.postToFacebook
-        ]
-        
-        activityViewController.isModalInPresentation = true
-        self.present(activityViewController, animated: true, completion: nil)
+        if let viewModel = viewModel {
+            factory.createShareButtonAction(with: viewModel, delegate: nil, sender: sender, self)
+        }
     }
     
     @IBAction func tapONCopyTextButton(_ sender: Any) {

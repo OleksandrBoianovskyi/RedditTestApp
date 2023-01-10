@@ -10,35 +10,41 @@ import SnapKit
 import AVKit
 import AVFoundation
 
-protocol VideoDeledate {
-    func presentVideo(with viewController: AVPlayerViewController)
-    func presentViewController(_ viewControllerToPresent: UIViewController, animated flag: Bool)
-}
-
 class MainPageTableViewCell: UITableViewCell {
     
     // MARK: - Properties
-    
-    static let cellIdentifier = "MainPageTableViewCell"
     
     @IBOutlet weak var icon: UIImageView!
     @IBOutlet weak var userName: UILabel!
     @IBOutlet weak var authorFullName: UILabel!
     @IBOutlet weak var hourAgoCreated: UILabel!
     @IBOutlet weak var settingButton: UIButton!
-    @IBOutlet weak var media: UIImageView!
     @IBOutlet weak var pageText: UILabel!
     @IBOutlet weak var upVoteButton: UIButton!
     @IBOutlet weak var downVoteButton: UIButton!
     @IBOutlet weak var score: UIButton!
     @IBOutlet weak var commentButton: UIButton!
     @IBOutlet weak var playImage: UIImageView!
+    @IBOutlet weak var media: UIImageView! {
+        didSet {
+            let imageTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(tapOnMedia))
+            media.addGestureRecognizer(imageTapGestureRecognizer)
+            media.isUserInteractionEnabled = true
+        }
+    }
     
+    static let cellIdentifier = "MainPageTableViewCell"
     var playerViewController = AVPlayerViewController()
     var playerView = AVPlayer()
+    let factory = ButtonsActionFactory.defaultFactory
     var delegate: VideoDeledate?
+    var downloadManager: DownloadManager?
+    
+    // Refactor this
     var vidStr: String?
     var viewModell: MainPageViewModel?
+    var image: UIImage!
+    var previewMedia: UIImageView!
     
     // MARK: - Cell methods
     
@@ -55,12 +61,13 @@ class MainPageTableViewCell: UITableViewCell {
         super.prepareForReuse()
         vidStr = ""
         playImage.isHidden = true
+        image = nil
+        previewMedia = nil
     }
     
     static func nib() -> UINib {
         UINib(nibName: "MainPageTableViewCell", bundle: nil)
     }
-    
     
     // MARK: - Setup UI methods
     
@@ -75,30 +82,30 @@ class MainPageTableViewCell: UITableViewCell {
         }
     }
     
-    // TODO: for future / vote butt
+    func makeCustomBarButton() -> UIBarButtonItem {
+        let arrowImage = UIImage(systemName: "xmark")
+        let button = UIButton(type: .system)
+        button.tintColor = .white
+        button.setImage(arrowImage, for: [])
+        button.addTarget(self, action: #selector(dismissFullscreenImage), for: .touchUpInside)
+        button.sizeToFit()
+        let barButton = UIBarButtonItem(customView: button)
+        
+        return barButton
+    }
+        
+    // MARK: - IBActions
     
     @IBAction func tapOnUpVote(_ sender: Any) {
-        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup.fill"), for: .normal)
-        upVoteButton.tintColor = .orange
-        score.setTitleColor(.orange, for: .normal)
-        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown"), for: .normal)
-        downVoteButton.tintColor = .darkGray
+        factory.createButtonAction(with: .upVote, upVoteButton: upVoteButton, downVoteButton: downVoteButton, scoreButton: score)
     }
     
     @IBAction func tapOnDownVote(_ sender: Any) {
-        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown.fill"), for: .normal)
-        downVoteButton.tintColor = .purple
-        score.setTitleColor(.purple, for: .normal)
-        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup"), for: .normal)
-        upVoteButton.tintColor = .darkGray
+        factory.createButtonAction(with: .downVote, upVoteButton: upVoteButton, downVoteButton: downVoteButton, scoreButton: score)
     }
     
     @IBAction func tapOnScoreButton(_ sender: Any) {
-        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup"), for: .normal)
-        upVoteButton.tintColor = .darkGray
-        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown"), for: .normal)
-        downVoteButton.tintColor = .darkGray
-        score.setTitleColor(.gray, for: .normal)
+        factory.createButtonAction(with: .score, upVoteButton: upVoteButton, downVoteButton: downVoteButton, scoreButton: score)
     }
     
     @IBAction func tapOnCommentButton(_ sender: Any) {
@@ -110,30 +117,55 @@ class MainPageTableViewCell: UITableViewCell {
         if let viewModel = viewModell {
             vc.setup(with: viewModel)
         }
-
+    }
+    
+    @IBAction func tapOnShareButton(_ sender: Any) {
+        if let viewModell = viewModell {
+            factory.createShareButtonAction(with: viewModell, delegate: delegate, sender: sender, nil)
+        }
     }
     
     @IBAction func tapOnSettingButton(_ sender: Any) {
-        let viewController = SettingViewController(nibName: "SettingViewController", bundle: nil)
-        let navController = UINavigationController(rootViewController: viewController)
-        navController.modalPresentationStyle = .formSheet
-        viewController.viewModel = viewModell
-        
-        if let sheet = navController.sheetPresentationController {
-            sheet.detents = [.custom(resolver: { _ in
-                return viewController.view.frame.height
-            })]
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = true
-            sheet.selectedDetentIdentifier = .medium
+        if let viewModell = viewModell {
+            factory.createSettingButtonAction(with: viewModell, delegate: delegate)
         }
-        
-        delegate?.presentViewController(navController, animated: true)
     }
     
+    // MARK: - @objc methods
+    
     @objc func tapOnMedia() {
-        if let videoString = vidStr {
+        if let videoString = vidStr, !videoString.isEmpty {
             playVideo(videoString: videoString)
+        } else {
+            
+            let navigationController = UINavigationController()
+            navigationController.modalPresentationStyle = .fullScreen
+            navigationController.view.backgroundColor = .black
+            let previewImageVC = PreviewImageVC()
+            previewImageVC.view.backgroundColor = .black
+            
+            previewImageVC.view.addSubview(previewMedia)
+            
+            let ratio = image.size.width / image.size.height
+            let newHeight = self.frame.width / ratio
+            self.previewMedia.snp.makeConstraints({ make in
+                make.height.equalTo(newHeight)
+                make.right.left.lessThanOrEqualToSuperview()
+                make.center.equalTo(previewImageVC.view.snp.center)
+                self.layoutIfNeeded()
+            })
+            
+            previewImageVC.navigationItem.leftBarButtonItem = makeCustomBarButton()
+            previewImageVC.navigationItem.title = "Reddit App"
+            previewImageVC.tabBarItem.badgeColor = .brown
+            navigationController.pushViewController(previewImageVC, animated: false)
+            
+            delegate?.presentViewController(navigationController, animated: true)
         }
+    }
+    
+    @objc func dismissFullscreenImage() {
+        delegate?.dismiss()
     }
     
     // MARK: - Business logic
@@ -148,12 +180,8 @@ class MainPageTableViewCell: UITableViewCell {
         }
     }
     
-    private func getData(from url: URL, completion: @escaping (Data?, URLResponse?, Error?) -> ()) {
-        URLSession.shared.dataTask(with: url, completionHandler: completion).resume()
-    }
-    
     private func downloadImage(from url: URL, type: UrlType) {
-        getData(from: url) { data, response, error in
+        downloadManager?.getData(from: url) { data, response, error in
             if let data = data, error == nil {
                 DispatchQueue.main.async() { [weak self] in
                     switch type {
@@ -161,28 +189,10 @@ class MainPageTableViewCell: UITableViewCell {
                         self?.icon.image = UIImage(data: data)
                     case .pagemedia:
                         self?.media.image = UIImage(data: data)
+                        self?.image = UIImage(data: data)
+                        self?.previewMedia.image = UIImage(data: data)
                     }
                 }
-            }
-        }
-    }
-    
-    func getVideoFromURL(from url: URL, completion: @escaping ((UIImage?)) -> ()) {
-        DispatchQueue.global().async {
-            let asset = AVAsset(url: url)
-            let avAssetImageGenerator = AVAssetImageGenerator(asset: asset)
-            avAssetImageGenerator.appliesPreferredTrackTransform = true
-            let thumblailTime = CMTimeMake(value: 2, timescale: 2)
-            do {
-                let cgThumbImage = try avAssetImageGenerator.copyCGImage(at: thumblailTime, actualTime: nil)
-                let thumbImage = UIImage(cgImage: cgThumbImage)
-                
-                DispatchQueue.main.async {
-                    completion(thumbImage)
-                }
-                
-            } catch {
-                print(error.localizedDescription)
             }
         }
     }
@@ -227,11 +237,7 @@ class MainPageTableViewCell: UITableViewCell {
             
         } else if viewModel.data.isVideo, let url = URL(string: (viewModel.data.media?.redditVideo!.fallbackURL)!)  {
             
-            let tap = UITapGestureRecognizer(target: self, action: #selector(tapOnMedia))
-            media.isUserInteractionEnabled = true
-            media.addGestureRecognizer(tap)
-            
-            getVideoFromURL(from: url) { (thumbImage) in
+            downloadManager?.getVideoFromURL(from: url) { (thumbImage) in
                 self.media.image = thumbImage
             }
         } else {
@@ -251,6 +257,9 @@ class MainPageTableViewCell: UITableViewCell {
     }
     
     public func configure(with viewModel: MainPageViewModel) {
+        downloadManager = DownloadManager(pageViewModel: nil, mainPageViewModel: viewModel)
+        image = UIImage()
+        previewMedia = UIImageView()
         if viewModel.data.isVideo {
             playImage.isHidden = false
         }
@@ -263,4 +272,16 @@ class MainPageTableViewCell: UITableViewCell {
 
 enum UrlType {
     case icon, pagemedia
+}
+
+// MARK: - PreviewImageVC
+
+class PreviewImageVC: UIViewController { }
+
+// MARK: - VideoDeledate
+
+protocol VideoDeledate {
+    func presentVideo(with viewController: AVPlayerViewController)
+    func presentViewController(_ viewControllerToPresent: UIViewController, animated flag: Bool)
+    func dismiss()
 }
