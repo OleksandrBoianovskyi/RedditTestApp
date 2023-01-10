@@ -12,25 +12,39 @@ import SafariServices
 
 class CommentViewController: UIViewController {
     
+    // MARK: - Properties
+    
     @IBOutlet weak var icon: UIImageView!
     @IBOutlet weak var userName: UILabel!
     @IBOutlet weak var authorFullName: UILabel!
     @IBOutlet weak var hourAgoCreated: UILabel!
     @IBOutlet weak var settingButton: UIButton!
-    @IBOutlet weak var media: UIImageView!
     @IBOutlet weak var pageText: UILabel!
     @IBOutlet weak var upVoteButton: UIButton!
     @IBOutlet weak var downVoteButton: UIButton!
     @IBOutlet weak var score: UIButton!
     @IBOutlet weak var addCommentTextField: UITextField!
+    @IBOutlet weak var media: UIImageView! {
+        didSet {
+            let imageTapGestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(tapOnMedia))
+            media.addGestureRecognizer(imageTapGestureRecognizer)
+            media.isUserInteractionEnabled = true
+        }
+    }
     
-    var vidStr: String?
     var viewModel: MainPageViewModel?
+    let factory = ButtonsActionFactory.defaultFactory
+    var downloadManager: DownloadManager?
+    
+    // Refactor this
+    var vidStr: String?
     
     override func viewDidLoad() {
         super.viewDidLoad()
         setupUI()
     }
+    
+    // MARK: - Setup
     
     func setupUI() {
         addCommentTextField.layer.borderWidth = 0.01
@@ -39,13 +53,12 @@ class CommentViewController: UIViewController {
     }
     
     func setup(with viewModel: MainPageViewModel) {
+        downloadManager = DownloadManager(pageViewModel: nil, mainPageViewModel: viewModel)
         self.viewModel = viewModel
         setupData(with: viewModel)
     }
-     
-    @IBAction func closeCommentView(_ sender: Any) {
-        self.dismiss(animated: true)
-    }
+    
+    // MARK: - Business logic
     
     private func validateCount(count: Int) -> String {
         let num = Double(count)
@@ -86,11 +99,7 @@ class CommentViewController: UIViewController {
             
         } else if viewModel.data.isVideo, let url = URL(string: (viewModel.data.media?.redditVideo!.fallbackURL)!)  {
             
-//            let tap = UITapGestureRecognizer(target: self, action: #selector(tapOnMedia))
-//            media.isUserInteractionEnabled = true
-//            media.addGestureRecognizer(tap)
-            
-            getVideoFromURL(from: url) { (thumbImage) in
+            downloadManager?.getVideoFromURL(from: url) { (thumbImage) in
                 self.media.image = thumbImage
             }
         } else {
@@ -109,12 +118,8 @@ class CommentViewController: UIViewController {
         }
     }
     
-    private func getData(from url: URL, completion: @escaping (Data?, URLResponse?, Error?) -> ()) {
-        URLSession.shared.dataTask(with: url, completionHandler: completion).resume()
-    }
-    
     private func downloadImage(from url: URL, type: UrlType) {
-        getData(from: url) { data, response, error in
+        downloadManager?.getData(from: url) { data, response, error in
             if let data = data, error == nil {
                 DispatchQueue.main.async() { [weak self] in
                     switch type {
@@ -128,50 +133,41 @@ class CommentViewController: UIViewController {
         }
     }
     
-    func getVideoFromURL(from url: URL, completion: @escaping ((UIImage?)) -> ()) {
-        DispatchQueue.global().async {
-            let asset = AVAsset(url: url)
-            let avAssetImageGenerator = AVAssetImageGenerator(asset: asset)
-            avAssetImageGenerator.appliesPreferredTrackTransform = true
-            let thumblailTime = CMTimeMake(value: 2, timescale: 2)
-            do {
-                let cgThumbImage = try avAssetImageGenerator.copyCGImage(at: thumblailTime, actualTime: nil)
-                let thumbImage = UIImage(cgImage: cgThumbImage)
-                
-                DispatchQueue.main.async {
-                    completion(thumbImage)
-                }
-                
-            } catch {
-                print(error.localizedDescription)
-            }
-        }
+    private func makeAlertForComments() {
+        let alert = UIAlertController(title: "The opportunity is blocked", message: "If you want to add a comment, you can do so on the web version of Reddit. Do you want to open the page?", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Yes", style: .default, handler: { (_) in
+            guard let urlString = self.viewModel?.data.url,
+                  let url: URL = URL(string: urlString) else { return }
+            
+            let safari: SFSafariViewController = SFSafariViewController(url: url)
+            self.present(safari, animated: true)
+            }))
+        alert.addAction(UIAlertAction(title: "No", style: .default, handler: { (_) in
+            
+        }))
+        
+        self.present(alert, animated: true)
+    }
+    
+    @objc func tapOnMedia() { }
+    
+    // MARK: - IBActions
+    
+    @IBAction func closeCommentView(_ sender: Any) {
+        self.dismiss(animated: true)
     }
     
     @IBAction func tapOnUpVote(_ sender: Any) {
-        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup.fill"), for: .normal)
-        upVoteButton.tintColor = .orange
-        score.setTitleColor(.orange, for: .normal)
-        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown"), for: .normal)
-        downVoteButton.tintColor = .darkGray
+        factory.createButtonAction(with: .upVote, upVoteButton: upVoteButton, downVoteButton: downVoteButton, scoreButton: score)
     }
     
     @IBAction func tapOnDownVote(_ sender: Any) {
-        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown.fill"), for: .normal)
-        downVoteButton.tintColor = .purple
-        score.setTitleColor(.purple, for: .normal)
-        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup"), for: .normal)
-        upVoteButton.tintColor = .darkGray
+        factory.createButtonAction(with: .downVote, upVoteButton: upVoteButton, downVoteButton: downVoteButton, scoreButton: score)
     }
     
     @IBAction func tapOnScoreButton(_ sender: Any) {
-        upVoteButton.setImage(UIImage(systemName: "hand.thumbsup"), for: .normal)
-        upVoteButton.tintColor = .darkGray
-        downVoteButton.setImage(UIImage(systemName: "hand.thumbsdown"), for: .normal)
-        downVoteButton.tintColor = .darkGray
-        score.setTitleColor(.gray, for: .normal)
+        factory.createButtonAction(with: .score, upVoteButton: upVoteButton, downVoteButton: downVoteButton, scoreButton: score)
     }
-    
     
     @IBAction func tapOnSettingButton(_ sender: Any) {
         let viewController = SettingViewController(nibName: "SettingViewController", bundle: nil)
@@ -194,27 +190,13 @@ class CommentViewController: UIViewController {
     @IBAction func tapOnMoreComments(_ sender: Any) {
         makeAlertForComments()
     }
+    
     @IBAction func tapOnAddCommentTextField(_ sender: Any) {
         makeAlertForComments()
     }
-    
-    private func makeAlertForComments() {
-        
-        let alert = UIAlertController(title: "The opportunity is blocked", message: "If you want to add a comment, you can do so on the web version of Reddit. Do you want to open the page?", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Yes", style: .default, handler: { (_) in
-            guard let urlString = self.viewModel?.data.url,
-                  let url: URL = URL(string: urlString) else { return }
-            
-            let safari: SFSafariViewController = SFSafariViewController(url: url)
-            self.present(safari, animated: true)
-            }))
-        alert.addAction(UIAlertAction(title: "No", style: .default, handler: { (_) in
-            
-        }))
-        
-        self.present(alert, animated: true)
-    }
 }
+
+// MARK: - Extensions
 
 extension UIScrollView {
    func scrollToBottom(animated: Bool) {
